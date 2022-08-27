@@ -154,7 +154,7 @@ namespace Nilfca {
                 stream.Write(sendBuffer, 0, sendBuffer.Length);
             }
 
-            Console.WriteLine(useragent + ": requested, annd was sent, the channel-list");
+            Console.WriteLine(useragent + ": requested, and was sent, the channel-list");
         }
     }
 }
