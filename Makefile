@@ -9,3 +9,6 @@ ready:
 	echo "getting ready for build"
 	mkdir build
 	cp -v lib/* build
+
+example:
+	mcs client-example.cs -out:client-example.cil
