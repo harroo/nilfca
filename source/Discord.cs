@@ -1,3 +1,4 @@
+
 using System;
 using System.IO;
 using System.Collections.Generic;
@@ -9,90 +10,165 @@ using DSharpPlus.EventArgs;
 using System.Threading.Tasks;
 using System.Threading;
 
-public static class Program {
+namespace Nilfca {
 
-    private static bool shouldStop;
+    public static class Discord {
 
-    public static void Main () {
+        private static bool shouldStop;
 
-    	shouldStop = false;
+        private static string clientToken;
 
-    	Program.MainAsync().ConfigureAwait(false).GetAwaiter().GetResult();
-    }
+        public static void SetToken (string token) {
 
-    public static void Stop () {
-
-        shouldStop = true;
-    }
-
-    private static DiscordClient discord;
-
-    public static async Task MainAsync () {
-
-        shouldStop = false;
-
-        discord = new DiscordClient(new DiscordConfiguration{
-
-            Token = "YOUR_TOKEN_HERE",
-            TokenType = TokenType.Bot,
-
-            AutoReconnect = true
-        });
-
-        discord.Ready += Discord_OnReady;
-        discord.GuildAvailable += Discord_OnGuildAvailable;
-        discord.ClientErrored += Discord_OnClientError;
-        discord.MessageCreated += Discord_OnMessageCreated;
-
-        await discord.ConnectAsync();
-
-        await Task.Delay(512);
-
-        await discord.UpdateStatusAsync(
-
-            new DiscordGame("anything you want to"),
-
-            UserStatus.Online,
-
-            null
-        );
-
-        while (!shouldStop) {
-
-            await Task.Delay(512);
+            clientToken = token;
         }
 
-        await discord.DisconnectAsync();
+        public static void Start () {
 
-        return;
+        	shouldStop = false;
+
+        	Discord.MainAsync().ConfigureAwait(false).GetAwaiter().GetResult();
+        }
+
+        public static void Stop () {
+
+            shouldStop = true;
+        }
+
+        private static DiscordClient discord;
+
+        public static async Task MainAsync () {
+
+            shouldStop = false;
+
+            discord = new DiscordClient(new DiscordConfiguration{
+
+                Token = clientToken,
+                TokenType = TokenType.Bot,
+
+                AutoReconnect = true
+            });
+
+            discord.GuildAvailable += Discord_OnGuildAvailable;
+
+            await discord.ConnectAsync();
+
+            await Task.Delay(512);
+
+            await discord.UpdateStatusAsync(
+
+                new DiscordGame("Nilfca"),
+
+                UserStatus.Online,
+
+                null
+            );
+
+            while (!shouldStop) {
+
+                await Task.Delay(100);
+
+                mutex.WaitOne(); try {
+
+                    while (sendQueue.Count != 0) {
+
+                        SendInfo sendInfo = sendQueue[0]; sendQueue.RemoveAt(0);
+
+                        foreach (var channel in channels) {
+
+                            if (channel.id == sendInfo.targetChannelId || channel.name == sendInfo.targetChannelName) {
+
+                                await channel.reference.SendMessageAsync(sendInfo.message);
+
+                                Console.WriteLine("Sent Message: " + channel.name + ": " + sendInfo.message);
+                            }
+                        }
+                    }
+
+                } finally { mutex.ReleaseMutex(); }
+            }
+
+            await discord.DisconnectAsync();
+
+            return;
+        }
+
+        private static Mutex mutex = new Mutex();
+        private static List<ChannelInfo> channels = new List<ChannelInfo>();
+        private static List<SendInfo> sendQueue = new List<SendInfo>();
+
+        private static Task Discord_OnGuildAvailable (GuildCreateEventArgs e) {
+
+    		foreach (var channel in e.Guild.Channels) { mutex.WaitOne(); try {
+
+    			Console.WriteLine("Access To: " + e.Guild.Name + "::" + channel.Name);
+
+                ChannelInfo channelInfo = new ChannelInfo();
+                channelInfo.name = e.Guild.Name + "::" + channel.Name;
+                channelInfo.id = channel.Id;
+                channelInfo.reference = channel;
+
+                if (!channels.Contains(channelInfo)) channels.Add(channelInfo);
+
+    		} finally { mutex.ReleaseMutex(); } }
+
+            return Task.CompletedTask;
+        }
+
+        public static void QueueMessage (string channelName, string message) {
+
+            SendInfo sendInfo = new SendInfo();
+            sendInfo.targetChannelName = channelName;
+            sendInfo.message = message;
+
+            mutex.WaitOne(); try {
+
+                sendQueue.Add(sendInfo);
+
+            } finally { mutex.ReleaseMutex(); }
+        }
+
+        public static void QueueMessage (ulong channelId, string message) {
+
+            SendInfo sendInfo = new SendInfo();
+            sendInfo.targetChannelId = channelId;
+            sendInfo.message = message;
+
+            mutex.WaitOne(); try {
+
+                sendQueue.Add(sendInfo);
+
+            } finally { mutex.ReleaseMutex(); }
+        }
+
+        public static List<ChannelInfo> GetChannels () {
+
+            mutex.WaitOne(); try {
+
+                List<ChannelInfo> channelList = new List<ChannelInfo>();
+                foreach (var channel in channels)
+                    channelList.Add(new ChannelInfo{
+                        name = channel.name,
+                        id = channel.id
+                    });
+
+                return channelList;
+
+            } finally { mutex.ReleaseMutex(); }
+        }
     }
 
-    private static Task Discord_OnReady (ReadyEventArgs e) {
+    public class ChannelInfo {
 
-        return Task.CompletedTask;
+        public string name;
+        public ulong id;
+        public DiscordChannel reference;
     }
 
-    private static Task Discord_OnGuildAvailable (GuildCreateEventArgs e) {
+    public class SendInfo {
 
-		foreach (var channel in e.Guild.Channels) {
-
-			Console.WriteLine("Access To: " + e.Guild.Name + "::" + channel.Name);
-		}
-
-        return Task.CompletedTask;
-    }
-
-    private static Task Discord_OnClientError (ClientErrorEventArgs e) {
-
-        return Task.CompletedTask;
-    }
-    private static Task Discord_OnMessageCreated (MessageCreateEventArgs e) {
-
-    	if (e.Message.Content == "hello") {
-
-    		e.Message.RespondAsync("hello discord!");
-    	}
-
-        return Task.CompletedTask;
+        public string message;
+        public string targetChannelName;
+        public ulong targetChannelId;
     }
 }

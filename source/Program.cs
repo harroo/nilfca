@@ -1,6 +1,7 @@
 
 using System;
 using System.IO;
+using System.Threading;
 
 namespace Nilfca {
 
@@ -29,6 +30,17 @@ namespace Nilfca {
             Console.WriteLine();
             Console.WriteLine();
             Console.WriteLine();
+
+            Console.WriteLine("Loading Discord-Token..");
+
+            if (!File.Exists("token.txt")) Abort("Failed to read token.txt, File.Exist returned false!");
+            Discord.SetToken(File.ReadAllLines("token.txt")[0]);
+
+            Console.WriteLine("Starting Discord Thread..");
+            new Thread(()=>Discord.Start()).Start();
+
+            //in future we will use the main thread for the server, for now just wait
+            for (;;) { Thread.Sleep(1000); }
         }
 
         private static void Abort (string reason) {
