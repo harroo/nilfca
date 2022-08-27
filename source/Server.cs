@@ -3,7 +3,6 @@ using System;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
-// using System.Collections.Generic;
 
 namespace Nilfca {
 
@@ -50,6 +49,7 @@ namespace Nilfca {
                         case 0: RecvIdMessage(stream); break;
                         case 1: RecvNameMessage(stream); break;
                         case 2: GetChannelList(stream); break;
+                        case 3: GetMessages(stream); break;
                     }
 
                     client.Close();
@@ -155,6 +155,48 @@ namespace Nilfca {
             }
 
             Console.WriteLine(useragent + ": requested, and was sent, the channel-list");
+        }
+
+        private static void GetMessages (NetworkStream stream) {
+
+            //recv useragent
+            byte[] recvBuffer = new byte[4];
+            stream.Read(recvBuffer, 0, 4);
+            recvBuffer = new byte[BitConverter.ToInt32(recvBuffer, 0)];
+            stream.Read(recvBuffer, 0, recvBuffer.Length);
+            string useragent = Encoding.Unicode.GetString(recvBuffer);
+
+            //recv channel name
+            recvBuffer = new byte[4];
+            stream.Read(recvBuffer, 0, 4);
+            recvBuffer = new byte[BitConverter.ToInt32(recvBuffer, 0)];
+            stream.Read(recvBuffer, 0, recvBuffer.Length);
+            string channelName = Encoding.Unicode.GetString(recvBuffer);
+
+            //recv message count
+            recvBuffer = new byte[4];
+            stream.Read(recvBuffer, 0, 4);
+            int messageCount = BitConverter.ToInt32(recvBuffer, 0);
+
+            var messages = Discord.GetMessages(channelName, messageCount);
+            byte[] sendBuffer = new byte[4];
+
+            //amount of messages
+            stream.Write(BitConverter.GetBytes(messages.Count), 0, 4);
+
+            //each message 1 by 1
+            foreach (var message in messages) {
+
+                sendBuffer = Encoding.Unicode.GetBytes(message.sender);
+                stream.Write(BitConverter.GetBytes(sendBuffer.Length), 0, 4);
+                stream.Write(sendBuffer, 0, sendBuffer.Length);
+
+                sendBuffer = Encoding.Unicode.GetBytes(message.message);
+                stream.Write(BitConverter.GetBytes(sendBuffer.Length), 0, 4);
+                stream.Write(sendBuffer, 0, sendBuffer.Length);
+            }
+
+            Console.WriteLine(useragent + ": requested for " + messageCount.ToString() + " messages, responded with: " + messages.Count.ToString());
         }
     }
 }

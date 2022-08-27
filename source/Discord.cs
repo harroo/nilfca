@@ -49,6 +49,7 @@ namespace Nilfca {
                 AutoReconnect = true
             });
 
+            discord.Ready += Discord_OnReady;
             discord.GuildAvailable += Discord_OnGuildAvailable;
 
             await discord.ConnectAsync();
@@ -106,7 +107,7 @@ namespace Nilfca {
 
     		foreach (var channel in e.Guild.Channels) { mutex.WaitOne(); try {
 
-    			Console.WriteLine("Access To: " + e.Guild.Name + "::" + channel.Name);
+                if (channel.Type != ChannelType.Text) continue;
 
                 ChannelInfo channelInfo = new ChannelInfo();
                 channelInfo.name = e.Guild.Name + "::" + channel.Name;
@@ -116,6 +117,13 @@ namespace Nilfca {
                 if (!channels.Contains(channelInfo)) channels.Add(channelInfo);
 
     		} finally { mutex.ReleaseMutex(); } }
+
+            return Task.CompletedTask;
+        }
+
+        private static Task Discord_OnReady (ReadyEventArgs e) {
+
+            Console.WriteLine("Discord is connected!");
 
             return Task.CompletedTask;
         }
@@ -161,6 +169,30 @@ namespace Nilfca {
 
             } finally { mutex.ReleaseMutex(); }
         }
+
+        public static List<MessageInfo> GetMessages (string channelName, int messageCount) {
+
+            mutex.WaitOne(); try {
+
+                List<MessageInfo> messages = new List<MessageInfo>();
+
+                foreach (var channel in channels) {
+
+                    if (channel.name == channelName) {
+
+                        foreach (var message in channel.reference.GetMessagesAsync(messageCount).Result)
+                            messages.Add(new MessageInfo{
+                                sender = message.Author.Username + "#" + message.Author.Discriminator,
+                                message = message.Content
+                            });
+                    }
+                }
+
+                messages.Reverse();
+                return messages;
+
+            } finally { mutex.ReleaseMutex(); }
+        }
     }
 
     public class ChannelInfo {
@@ -175,5 +207,11 @@ namespace Nilfca {
         public string message;
         public string targetChannelName;
         public ulong targetChannelId;
+    }
+
+    public class MessageInfo {
+
+        public string sender;
+        public string message;
     }
 }

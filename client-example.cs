@@ -17,12 +17,6 @@ public static class ClientExample {
 
         if (args.Length == 1) RunInInteractive(args[0]);
 
-        if (args.Length == 3) {
-
-            Console.WriteLine("Please provide a message!");
-            Environment.Exit(-1);
-        }
-
         string message = "";
         if (args.Length > 4) for (int i = 3; i < args.Length; ++i)
                 message += args[i] + " ";
@@ -33,10 +27,23 @@ public static class ClientExample {
                 PrintChannelList(args[0]); break;
 
             case "-ss": case "--send-string-id":
+                if (args.Length == 3) {
+
+                    Console.WriteLine("Please provide a message!");
+                    Environment.Exit(-1);
+                }
                 SendNameMessage(args[0], args[2], message); break;
 
             case "-si": case "--send-ulong-id":
+                if (args.Length == 3) {
+
+                    Console.WriteLine("Please provide a message!");
+                    Environment.Exit(-1);
+                }
                 SendIdMessage(args[0], ulong.Parse(args[2]), message); break;
+
+            case "-m": case "--get-messages":
+                PrintMessagesFromChannel(args[0], args[2], int.Parse(args[3])); break;
 
             default: RunHelp(); break;
         }
@@ -138,6 +145,58 @@ public static class ClientExample {
         }
     }
 
+    private static void PrintMessagesFromChannel (string address, string channelName, int messageCount) {
+
+		TcpClient client = new TcpClient(address, 1122);
+		NetworkStream stream = client.GetStream();
+		byte[] buffer;
+
+        stream.Write(new byte[1]{3});
+
+		//send useragent
+		buffer = Encoding.Unicode.GetBytes("nilfca-client-example");
+		stream.Write(BitConverter.GetBytes(buffer.Length), 0, 4);
+		stream.Write(buffer, 0, buffer.Length);
+
+		//send channelName
+		buffer = Encoding.Unicode.GetBytes(channelName);
+		stream.Write(BitConverter.GetBytes(buffer.Length), 0, 4);
+		stream.Write(buffer, 0, buffer.Length);
+
+        //send message count
+		stream.Write(BitConverter.GetBytes(messageCount), 0, 4);
+
+        //recv recved message count
+        buffer = new byte[4];
+        stream.Read(buffer, 0, 4);
+        int recvMessageCount = BitConverter.ToInt32(buffer, 0);
+
+        string[] messageSenders = new string[recvMessageCount];
+        string[] messageContents = new string[recvMessageCount];
+
+        //recv messages
+        for (int i = 0; i < recvMessageCount; ++i) {
+
+            buffer = new byte[4];
+            stream.Read(buffer, 0, 4);
+            buffer = new byte[BitConverter.ToInt32(buffer, 0)];
+            stream.Read(buffer, 0, buffer.Length);
+            messageSenders[i] = Encoding.Unicode.GetString(buffer);
+
+            buffer = new byte[4];
+            stream.Read(buffer, 0, 4);
+            buffer = new byte[BitConverter.ToInt32(buffer, 0)];
+            stream.Read(buffer, 0, buffer.Length);
+            messageContents[i] = Encoding.Unicode.GetString(buffer);
+        }
+
+        //print all messages
+        for (int i = 0; i < recvMessageCount; ++i) {
+
+            Console.WriteLine("<" + messageSenders[i].ToString() + ">: " + messageContents[i]);
+        }
+    }
+
     private static void RunHelp () {
 
         Console.WriteLine();
@@ -154,6 +213,9 @@ public static class ClientExample {
         Console.WriteLine();
         Console.WriteLine("-si   --send-ulong-id");
         Console.WriteLine("     sends a message to a channel, ulong id");
+        Console.WriteLine();
+        Console.WriteLine("-m   --get-messages");
+        Console.WriteLine("     gets messages from a channel");
     }
 
     private static void RunInInteractive (string serverAddress) {
@@ -213,6 +275,14 @@ public static class ClientExample {
                     Console.WriteLine("Sending message with ulong id..");
                     SendIdMessage(serverAddress, ulong.Parse(channelTarget), message);
                     Console.WriteLine("Done!"); break;
+
+                case "-m": case "--get-messages":
+                    if (channelTarget == "" || message == "") {
+
+                        Console.WriteLine("Please input a channelTarget, and a channelName..");
+                        break;
+                    }
+                    PrintMessagesFromChannel(serverAddress, channelTarget, int.Parse(message)); break;
 
                 default: RunHelp(); break;
 
