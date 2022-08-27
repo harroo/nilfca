@@ -68,29 +68,34 @@ namespace Nilfca {
 
                 await Task.Delay(100);
 
-                mutex.WaitOne(); try {
-
-                    while (sendQueue.Count != 0) {
-
-                        SendInfo sendInfo = sendQueue[0]; sendQueue.RemoveAt(0);
-
-                        foreach (var channel in channels) {
-
-                            if (channel.id == sendInfo.targetChannelId || channel.name == sendInfo.targetChannelName) {
-
-                                await channel.reference.SendMessageAsync(sendInfo.message);
-
-                                Console.WriteLine("Sent Message: " + channel.name + ": " + sendInfo.message);
-                            }
-                        }
-                    }
-
-                } finally { mutex.ReleaseMutex(); }
+                Tick();
             }
 
             await discord.DisconnectAsync();
 
             return;
+        }
+
+        private static void Tick () {
+
+            mutex.WaitOne(); try {
+
+                while (sendQueue.Count != 0) {
+
+                    SendInfo sendInfo = sendQueue[0]; sendQueue.RemoveAt(0);
+
+                    foreach (var channel in channels) {
+
+                        if (channel.id == sendInfo.targetChannelId || channel.name == sendInfo.targetChannelName) {
+
+                            channel.reference.SendMessageAsync(sendInfo.message);
+
+                            Console.WriteLine("Sent Message: " + channel.name + ": " + sendInfo.message);
+                        }
+                    }
+                }
+
+            } finally { mutex.ReleaseMutex(); }
         }
 
         private static Mutex mutex = new Mutex();
