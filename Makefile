@@ -1,6 +1,6 @@
 
 output:
-	mcs -recurse:source/*.cs -out:build/nilfca.cil
+	mcs -recurse:source/*.cs -r:lib/DSharpPlus.dll -r:lib/Newtonsoft.Json.dll -out:build/nilfca.cil
 
 run:
 	mono build/nilfca.cil
@@ -8,3 +8,4 @@ run:
 ready:
 	echo "getting ready for build"
 	mkdir build
+	cp -v lib/* build
