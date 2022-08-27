@@ -39,8 +39,8 @@ namespace Nilfca {
             Console.WriteLine("Starting Discord Thread..");
             new Thread(()=>Discord.Start()).Start();
 
-            //in future we will use the main thread for the server, for now just wait
-            for (;;) { Thread.Sleep(1000); }
+            Console.WriteLine("Starting Server..");
+            Server.Start();
         }
 
         private static void Abort (string reason) {
