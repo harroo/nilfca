@@ -105,18 +105,31 @@ namespace Nilfca {
 
         private static Task Discord_OnGuildAvailable (GuildCreateEventArgs e) {
 
-    		foreach (var channel in e.Guild.Channels) { mutex.WaitOne(); try {
+            mutex.WaitOne(); try {
 
-                if (channel.Type != ChannelType.Text) continue;
+        		foreach (var channel in e.Guild.Channels) {
 
-                ChannelInfo channelInfo = new ChannelInfo();
-                channelInfo.name = e.Guild.Name + "::" + channel.Name;
-                channelInfo.id = channel.Id;
-                channelInfo.reference = channel;
+                    if (channel.Type != ChannelType.Text) continue;
 
-                if (!channels.Contains(channelInfo)) channels.Add(channelInfo);
+                    ChannelInfo channelInfo = new ChannelInfo();
+                    channelInfo.name = e.Guild.Name + "::" + channel.Name;
+                    channelInfo.id = channel.Id;
+                    channelInfo.reference = channel;
 
-    		} finally { mutex.ReleaseMutex(); } }
+                    if (!channels.Contains(channelInfo)) channels.Add(channelInfo);
+                }
+
+                foreach (var user in e.Guild.GetAllMembersAsync().Result) {
+
+                    ChannelInfo channelInfo = new ChannelInfo();
+                    channelInfo.name = user.Username + "#" + user.Discriminator;
+                    channelInfo.id = user.Id;
+                    channelInfo.reference = user.CreateDmChannelAsync().Result;
+
+                    if (!channels.Contains(channelInfo)) channels.Add(channelInfo);
+                }
+
+    		} finally { mutex.ReleaseMutex(); }
 
             return Task.CompletedTask;
         }
