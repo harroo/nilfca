@@ -222,7 +222,7 @@ public static class ClientExample {
         }
 
         //print all messages
-        for (int i = 0; i < recvMessageCount; ++i) {
+        for (int i = recvMessageCount - 1; i >= 0; ++i) {
 
             Console.WriteLine("<" + messageSenders[i].ToString() + ">: " + messageContents[i]);
         }

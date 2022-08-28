@@ -201,7 +201,6 @@ namespace Nilfca {
                     }
                 }
 
-                messages.Reverse();
                 return messages;
 
             } finally { mutex.ReleaseMutex(); }
