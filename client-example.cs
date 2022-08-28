@@ -4,6 +4,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Collections.Generic;
 using System.Text;
+using System.Security.Cryptography;
 
 public static class ClientExample {
 
@@ -14,36 +15,46 @@ public static class ClientExample {
             Console.WriteLine("Please provide some arguments, silly!");
             Environment.Exit(-1);
         }
+        if (args.Length == 1) {
 
-        if (args.Length == 1) RunInInteractive(args[0]);
+            Console.WriteLine("At least enter a password also! You know for the Authentication..");
+            Environment.Exit(-1);
+        }
+
+        if (args.Length == 2) RunInInteractive(args[0], args[1]);
 
         string message = "";
-        if (args.Length > 4) for (int i = 3; i < args.Length; ++i)
+        if (args.Length > 5) for (int i = 4; i < args.Length; ++i)
                 message += args[i] + " ";
 
-        switch (args[1]) {
+        switch (args[2]) {
 
             case "-g": case "--get-channels": case "--get-channels-list": case "--get-channel-list":
-                PrintChannelList(args[0]); break;
+                PrintChannelList(args[0], args[1]); break;
 
             case "-ss": case "--send-string-id":
-                if (args.Length == 3) {
+                if (args.Length == 4) {
 
                     Console.WriteLine("Please provide a message!");
                     Environment.Exit(-1);
                 }
-                SendNameMessage(args[0], args[2], message); break;
+                SendNameMessage(args[0], args[1], args[3], message); break;
 
             case "-si": case "--send-ulong-id":
-                if (args.Length == 3) {
+                if (args.Length == 4) {
 
                     Console.WriteLine("Please provide a message!");
                     Environment.Exit(-1);
                 }
-                SendIdMessage(args[0], ulong.Parse(args[2]), message); break;
+                SendIdMessage(args[0], args[1], ulong.Parse(args[3]), message); break;
 
             case "-m": case "--get-messages":
-                PrintMessagesFromChannel(args[0], args[2], int.Parse(args[3])); break;
+                if (args.Length != 5) {
+
+                    Console.WriteLine("Please provide a channelTarget and an amount!");
+                    Environment.Exit(-1);
+                }
+                PrintMessagesFromChannel(args[0], args[1], args[3], int.Parse(args[4])); break;
 
             default: RunHelp(); break;
         }
@@ -51,7 +62,7 @@ public static class ClientExample {
         Environment.Exit(0);
     }
 
-    private static void SendIdMessage (string address, ulong channelId, string message) {
+    private static void SendIdMessage (string address, string password, ulong channelId, string message) {
 
 		TcpClient client = new TcpClient(address, 1122);
 		NetworkStream stream = client.GetStream();
@@ -64,6 +75,11 @@ public static class ClientExample {
 		stream.Write(BitConverter.GetBytes(sendBuffer.Length), 0, 4);
 		stream.Write(sendBuffer, 0, sendBuffer.Length);
 
+		//send password
+		sendBuffer = Encoding.Unicode.GetBytes(Sha256Hash(password));
+		stream.Write(BitConverter.GetBytes(sendBuffer.Length), 0, 4);
+		stream.Write(sendBuffer, 0, sendBuffer.Length);
+
 		//send channelId
         stream.Write(BitConverter.GetBytes(channelId), 0, 8);
 
@@ -73,7 +89,7 @@ public static class ClientExample {
 		stream.Write(sendBuffer, 0, sendBuffer.Length);
     }
 
-    private static void SendNameMessage (string address, string channelName, string message) {
+    private static void SendNameMessage (string address, string password, string channelName, string message) {
 
 		TcpClient client = new TcpClient(address, 1122);
 		NetworkStream stream = client.GetStream();
@@ -83,6 +99,11 @@ public static class ClientExample {
 
 		//send useragent
 		sendBuffer = Encoding.Unicode.GetBytes("nilfca-client-example");
+		stream.Write(BitConverter.GetBytes(sendBuffer.Length), 0, 4);
+		stream.Write(sendBuffer, 0, sendBuffer.Length);
+
+		//send password
+		sendBuffer = Encoding.Unicode.GetBytes(Sha256Hash(password));
 		stream.Write(BitConverter.GetBytes(sendBuffer.Length), 0, 4);
 		stream.Write(sendBuffer, 0, sendBuffer.Length);
 
@@ -97,7 +118,7 @@ public static class ClientExample {
 		stream.Write(sendBuffer, 0, sendBuffer.Length);
     }
 
-    private static void PrintChannelList (string address) {
+    private static void PrintChannelList (string address, string password) {
 
 		TcpClient client = new TcpClient(address, 1122);
 		NetworkStream stream = client.GetStream();
@@ -107,6 +128,11 @@ public static class ClientExample {
 
 		//send useragent
 		buffer = Encoding.Unicode.GetBytes("nilfca-client-example");
+		stream.Write(BitConverter.GetBytes(buffer.Length), 0, 4);
+		stream.Write(buffer, 0, buffer.Length);
+
+		//send password
+		buffer = Encoding.Unicode.GetBytes(Sha256Hash(password));
 		stream.Write(BitConverter.GetBytes(buffer.Length), 0, 4);
 		stream.Write(buffer, 0, buffer.Length);
 
@@ -145,7 +171,7 @@ public static class ClientExample {
         }
     }
 
-    private static void PrintMessagesFromChannel (string address, string channelName, int messageCount) {
+    private static void PrintMessagesFromChannel (string address, string password, string channelName, int messageCount) {
 
 		TcpClient client = new TcpClient(address, 1122);
 		NetworkStream stream = client.GetStream();
@@ -155,6 +181,11 @@ public static class ClientExample {
 
 		//send useragent
 		buffer = Encoding.Unicode.GetBytes("nilfca-client-example");
+		stream.Write(BitConverter.GetBytes(buffer.Length), 0, 4);
+		stream.Write(buffer, 0, buffer.Length);
+
+		//send password
+		buffer = Encoding.Unicode.GetBytes(Sha256Hash(password));
 		stream.Write(BitConverter.GetBytes(buffer.Length), 0, 4);
 		stream.Write(buffer, 0, buffer.Length);
 
@@ -202,7 +233,7 @@ public static class ClientExample {
         Console.WriteLine();
         Console.WriteLine("Nilfca client help page.");
         Console.WriteLine();
-        Console.WriteLine(" nilfcacli [address] [options] message");
+        Console.WriteLine(" nilfcacli [address] [password] [options] message");
         Console.WriteLine();
         Console.WriteLine("-g   --get-channels || --get-channels-list || --get-channel-list");
         Console.WriteLine("     gets and prints a list of all channels available on the server");
@@ -218,7 +249,7 @@ public static class ClientExample {
         Console.WriteLine("     gets messages from a channel");
     }
 
-    private static void RunInInteractive (string serverAddress) {
+    private static void RunInInteractive (string serverAddress, string password) {
 
         Console.WriteLine("Welcome!");
         Console.WriteLine();
@@ -254,7 +285,7 @@ public static class ClientExample {
 
                 case "-g": case "--get-channels": case "--get-channels-list": case "--get-channel-list":
                     Console.WriteLine("Fetching and printing Channel List..");
-                    PrintChannelList(serverAddress); break;
+                    PrintChannelList(serverAddress, password); break;
 
                 case "-ss": case "--send-string-id":
                     if (channelTarget == "" || message == "") {
@@ -263,7 +294,7 @@ public static class ClientExample {
                         break;
                     }
                     Console.WriteLine("Sending message with string id..");
-                    SendNameMessage(serverAddress, channelTarget, message);
+                    SendNameMessage(serverAddress, password, channelTarget, message);
                     Console.WriteLine("Done!"); break;
 
                 case "-si": case "--send-ulong-id":
@@ -273,16 +304,16 @@ public static class ClientExample {
                         break;
                     }
                     Console.WriteLine("Sending message with ulong id..");
-                    SendIdMessage(serverAddress, ulong.Parse(channelTarget), message);
+                    SendIdMessage(serverAddress, password, ulong.Parse(channelTarget), message);
                     Console.WriteLine("Done!"); break;
 
                 case "-m": case "--get-messages":
                     if (channelTarget == "" || message == "") {
 
-                        Console.WriteLine("Please input a channelTarget, and a channelName..");
+                        Console.WriteLine("Please input a channelTarget, and an amount..");
                         break;
                     }
-                    PrintMessagesFromChannel(serverAddress, channelTarget, int.Parse(message)); break;
+                    PrintMessagesFromChannel(serverAddress, password, channelTarget, int.Parse(message)); break;
 
                 default: RunHelp(); break;
 
@@ -292,5 +323,18 @@ public static class ClientExample {
                     break;
             }
         }
+    }
+
+    //this is from https://github.com/harroo/Harasoft
+    public static string Sha256Hash (string input) {
+
+        HashAlgorithm algorithm = SHA256.Create();
+        byte[] hashedData = algorithm.ComputeHash(Encoding.Unicode.GetBytes(input));
+
+        StringBuilder stringBuilder = new StringBuilder();
+        foreach (byte b in hashedData)
+            stringBuilder.Append(b.ToString("X2"));
+
+        return stringBuilder.ToString();
     }
 }

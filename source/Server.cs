@@ -3,6 +3,8 @@ using System;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Security.Cryptography;
+using System.IO;
 
 namespace Nilfca {
 
@@ -11,6 +13,13 @@ namespace Nilfca {
         private static TcpListener listener;
 
         public static void Start () {
+
+            Console.WriteLine("Loading password from passkey.txt..");
+
+            if (!File.Exists("passkey.txt"))
+                Console.WriteLine("passkey.txt not found! default password will be used. This is very unsecure! Please don't do this!");
+
+            Console.WriteLine("Starting Server..");
 
             listener = new TcpListener(IPAddress.Any, 1122);
 
@@ -64,6 +73,20 @@ namespace Nilfca {
             }
         }
 
+        private static bool CheckPasskey (string hashToCheck) {
+
+            string input = File.Exists("passkey.txt") ? File.ReadAllLines("passkey.txt")[0] : "acflin";
+
+            HashAlgorithm algorithm = SHA256.Create();
+            byte[] hashedData = algorithm.ComputeHash(Encoding.Unicode.GetBytes(input));
+
+            StringBuilder stringBuilder = new StringBuilder();
+            foreach (byte b in hashedData)
+                stringBuilder.Append(b.ToString("X2"));
+
+            return stringBuilder.ToString() == hashToCheck;
+        }
+
         private static void RecvIdMessage (NetworkStream stream) {
 
             //recv useragent
@@ -73,6 +96,14 @@ namespace Nilfca {
             stream.Read(recvBuffer, 0, recvBuffer.Length);
 
             string useragent = Encoding.Unicode.GetString(recvBuffer);
+
+            //recv authentication
+            recvBuffer = new byte[4];
+            stream.Read(recvBuffer, 0, 4);
+            recvBuffer = new byte[BitConverter.ToInt32(recvBuffer, 0)];
+            stream.Read(recvBuffer, 0, recvBuffer.Length);
+
+            if (!CheckPasskey(Encoding.Unicode.GetString(recvBuffer))) return;
 
             //recv channel id
             recvBuffer = new byte[8];
@@ -103,6 +134,14 @@ namespace Nilfca {
             stream.Read(recvBuffer, 0, recvBuffer.Length);
 
             string useragent = Encoding.Unicode.GetString(recvBuffer);
+
+            //recv authentication
+            recvBuffer = new byte[4];
+            stream.Read(recvBuffer, 0, 4);
+            recvBuffer = new byte[BitConverter.ToInt32(recvBuffer, 0)];
+            stream.Read(recvBuffer, 0, recvBuffer.Length);
+
+            if (!CheckPasskey(Encoding.Unicode.GetString(recvBuffer))) return;
 
             //recv channel name
             recvBuffer = new byte[4];
@@ -136,6 +175,14 @@ namespace Nilfca {
 
             string useragent = Encoding.Unicode.GetString(recvBuffer);
 
+            //recv authentication
+            recvBuffer = new byte[4];
+            stream.Read(recvBuffer, 0, 4);
+            recvBuffer = new byte[BitConverter.ToInt32(recvBuffer, 0)];
+            stream.Read(recvBuffer, 0, recvBuffer.Length);
+
+            if (!CheckPasskey(Encoding.Unicode.GetString(recvBuffer))) return;
+
             var channels = Discord.GetChannels();
             byte[] sendBuffer = new byte[4];
 
@@ -165,6 +212,14 @@ namespace Nilfca {
             recvBuffer = new byte[BitConverter.ToInt32(recvBuffer, 0)];
             stream.Read(recvBuffer, 0, recvBuffer.Length);
             string useragent = Encoding.Unicode.GetString(recvBuffer);
+
+            //recv authentication
+            recvBuffer = new byte[4];
+            stream.Read(recvBuffer, 0, 4);
+            recvBuffer = new byte[BitConverter.ToInt32(recvBuffer, 0)];
+            stream.Read(recvBuffer, 0, recvBuffer.Length);
+
+            if (!CheckPasskey(Encoding.Unicode.GetString(recvBuffer))) return;
 
             //recv channel name
             recvBuffer = new byte[4];
